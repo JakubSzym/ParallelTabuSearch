@@ -1,14 +1,17 @@
 import sys
+
+import numpy
 import numpy as np
 import matplotlib.pyplot as plt
 
 
 class VRPTabuSearch:
-    def __init__(self, vehicle_count):
+    def __init__(self, vehicle_count, tabu_tenure):
         self.distances = []
         self.solution = []
         self.node_count = 0
         self.vehicle_count = vehicle_count
+        self.tabu_tenure = tabu_tenure
 
     def read_distance_graph(self, filename):
         with open(filename, 'rb') as f:
@@ -62,10 +65,30 @@ class VRPTabuSearch:
             cost += self.distances[0][routes[i][j]]
         return cost
 
+    def two_swap(self, routes, node_i, node_j):
+        i_index = numpy.where(routes == node_i)
+        j_index = numpy.where(routes == node_j)
+        routes[i_index[0][0]][i_index[1][0]], routes[j_index[0][0]][j_index[1][0]] = (
+            routes[j_index[0][0]][j_index[1][0]], routes[i_index[0][0]][i_index[1][0]])
+        return routes
 
-vrp_tabu = VRPTabuSearch(1)
+
+    def two_insert(self, routes, node_i, node_j):
+        # put node_j before node_i
+        i_index = numpy.where(routes == node_i)
+        j_index = numpy.where(routes == node_j)
+        routes[i_index[0][0]] = np.concatenate((routes[i_index[0][0]][:i_index[1][0]], [routes[j_index[0][0]][j_index[1][0]]], routes[i_index[0][0]][i_index[1][0]:-1]))
+        routes[j_index[0][0]] = np.concatenate((routes[j_index[0][0]][:j_index[1][0]], routes[j_index[0][0]][j_index[1][0]+1:], [0]))
+        return routes
+
+
+vrp_tabu = VRPTabuSearch(2, 5)
 vrp_tabu.read_distance_graph('data_graph.npy')
 solution = vrp_tabu.initial_solution()
+print(solution)
+cost = vrp_tabu.cost_function(solution)
+print(cost)
+solution = vrp_tabu.two_insert(solution, 2, 1)
 print(solution)
 cost = vrp_tabu.cost_function(solution)
 print(cost)
