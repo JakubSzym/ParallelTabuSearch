@@ -77,7 +77,16 @@ class VRPTabuSearch:
         i_index = numpy.where(routes == node_i)
         j_index = numpy.where(routes == node_j)
         if i_index[0][0] == j_index[0][0]:
-            routes[i_index[0][0]][i_index[1][0]], routes[j_index[0][0]][j_index[1][0]] = routes[j_index[0][0]][j_index[1][0]], routes[i_index[0][0]][i_index[1][0]]
+            if i_index[1][0] < j_index[1][0]:
+                routes[i_index[0][0]] = np.concatenate((routes[i_index[0][0]][:i_index[1][0]],
+                                                       [routes[i_index[0][0]][j_index[1][0]]],
+                                                       routes[i_index[0][0]][i_index[1][0]:j_index[1][0]],
+                                                       routes[i_index[0][0]][j_index[1][0]+1:]))
+            if i_index[1][0] > j_index[1][0]:
+                routes[i_index[0][0]] = np.concatenate((routes[i_index[0][0]][:j_index[1][0]],
+                                                       routes[i_index[0][0]][j_index[1][0]+1:i_index[1][0]],
+                                                       [routes[i_index[0][0]][j_index[1][0]]],
+                                                       routes[i_index[0][0]][i_index[1][0]:]))
             return routes
 
         routes[i_index[0][0]] = np.concatenate((routes[i_index[0][0]][:i_index[1][0]], [routes[j_index[0][0]][j_index[1][0]]], routes[i_index[0][0]][i_index[1][0]:-1]))
