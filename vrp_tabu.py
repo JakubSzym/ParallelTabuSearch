@@ -2,10 +2,12 @@ import sys
 import numpy
 import numpy as np
 import matplotlib.pyplot as plt
+from multiprocessing import Pool
+import time
 
 
 class VRPTabuSearch:
-    def __init__(self, vehicle_count, tabu_tenure, max_iterations, candidate_list_percentage):
+    def __init__(self, vehicle_count, tabu_tenure, max_iterations, candidate_list_percentage, distance_graph_filename):
         self.distances = []
         self.solution = []
         self.node_count = 0
@@ -14,6 +16,9 @@ class VRPTabuSearch:
         self.max_iterations = max_iterations
         self.candidate_list_percentage = candidate_list_percentage
         self.candidate_list_size = 0
+        self.read_distance_graph(distance_graph_filename)
+        self.current_solution = self.initial_solution()
+        self.tabu_list = np.zeros((self.tabu_tenure, self.current_solution.shape[0], self.current_solution.shape[1]), dtype=int)
 
     def read_distance_graph(self, filename):
         with open(filename, 'rb') as f:
@@ -99,11 +104,56 @@ class VRPTabuSearch:
                 return True
         return False
 
+    def explore_nodes_neighbors(self, node):
+        best_neighbor_solution = []
+        best_neighbor_cost = sys.maxsize
+        candidate_list = self.get_candidate_list(node)
+        for candidate in candidate_list:
+            # explore swap with candidate
+            temp_solution = self.two_swap(np.copy(self.current_solution), node, candidate)
+            temp_cost = self.cost_function(temp_solution)
+            if temp_cost < best_neighbor_cost:
+                if not self.is_tabu(temp_solution, self.tabu_list):
+                    best_neighbor_cost = temp_cost
+                    best_neighbor_solution = np.copy(temp_solution)
+            # explore insertion of candidate
+            temp_solution = self.two_insert(np.copy(self.current_solution), node, candidate)
+            temp_cost = self.cost_function(temp_solution)
+            if temp_cost < best_neighbor_cost:
+                if not self.is_tabu(temp_solution, self.tabu_list):
+                    best_neighbor_cost = temp_cost
+                    best_neighbor_solution = np.copy(temp_solution)
+        return best_neighbor_cost, best_neighbor_solution
+
+    def tabu_search_parallel(self):
+        best_solution = numpy.copy(self.current_solution)
+        self.tabu_list[0] = best_solution
+        best_cost = self.cost_function(best_solution)
+        iteration = 0
+        max_iteration_stop = False
+        while not max_iteration_stop:
+            with Pool(5) as pool:
+                results = pool.map(self.explore_nodes_neighbors, range(1, self.node_count))
+            costs, solutions = zip(*list(results))
+            best_result_id = min(range(len(costs)), key=costs.__getitem__)
+            best_neighbor_cost = costs[best_result_id]
+            best_neighbor_solution = np.asarray(solutions[best_result_id])
+            self.tabu_list = np.concatenate(([best_neighbor_solution], self.tabu_list[:-1]))
+            self.current_solution = np.copy(best_neighbor_solution)
+            if best_neighbor_cost < best_cost:
+                best_solution = np.copy(best_neighbor_solution)
+                best_cost = np.copy(best_neighbor_cost)
+
+            if iteration < self.max_iterations:
+                iteration += 1
+            else:
+                max_iteration_stop = True
+
+        return best_solution, best_cost
+
     def tabu_search(self):
-        current_solution = self.initial_solution()
-        best_solution = numpy.copy(current_solution)
-        tabu_list = np.zeros((self.tabu_tenure, current_solution.shape[0], current_solution.shape[1]), dtype=int)
-        tabu_list[0] = best_solution
+        best_solution = numpy.copy(self.current_solution)
+        self.tabu_list[0] = best_solution
         best_cost = self.cost_function(best_solution)
         iteration = 0
         max_iteration_stop = False
@@ -114,22 +164,22 @@ class VRPTabuSearch:
                 candidate_list = self.get_candidate_list(node_iter)
                 for candidate in candidate_list:
                     # explore swap with candidate
-                    temp_solution = self.two_swap(np.copy(current_solution), node_iter, candidate)
+                    temp_solution = self.two_swap(np.copy(self.current_solution), node_iter, candidate)
                     temp_cost = self.cost_function(temp_solution)
                     if temp_cost < best_neighbor_cost:
-                        if not self.is_tabu(temp_solution, tabu_list):
+                        if not self.is_tabu(temp_solution, self.tabu_list):
                             best_neighbor_cost = temp_cost
                             best_neighbor_solution = np.copy(temp_solution)
                     # explore insertion of candidate
-                    temp_solution = self.two_insert(np.copy(current_solution), node_iter, candidate)
+                    temp_solution = self.two_insert(np.copy(self.current_solution), node_iter, candidate)
                     temp_cost = self.cost_function(temp_solution)
                     if temp_cost < best_neighbor_cost:
-                        if not self.is_tabu(temp_solution, tabu_list):
+                        if not self.is_tabu(temp_solution, self.tabu_list):
                             best_neighbor_cost = temp_cost
                             best_neighbor_solution = np.copy(temp_solution)
 
-            tabu_list = np.concatenate(([best_neighbor_solution], tabu_list[:-1]))
-            current_solution = np.copy(best_neighbor_solution)
+            self.tabu_list = np.concatenate(([best_neighbor_solution], self.tabu_list[:-1]))
+            self.current_solution = np.copy(best_neighbor_solution)
             if best_neighbor_cost < best_cost:
                 best_solution = np.copy(best_neighbor_solution)
                 best_cost = np.copy(best_neighbor_cost)
@@ -142,17 +192,20 @@ class VRPTabuSearch:
         return best_solution, best_cost
 
 
-
-vrp_tabu = VRPTabuSearch(2, 5, 10, 50)
-vrp_tabu.read_distance_graph('data_graph.npy')
-solution = vrp_tabu.initial_solution()
-print(solution)
-cost = vrp_tabu.cost_function(solution)
-print(cost)
-
-best_solution, best_cost = vrp_tabu.tabu_search()
-print(best_cost)
-print(best_solution)
+if __name__ == '__main__':
+    vrp_tabu = VRPTabuSearch(10, 5, 200, 50, 'data_graph.npy')
+    solution = vrp_tabu.initial_solution()
+    print(solution)
+    cost = vrp_tabu.cost_function(solution)
+    print(cost)
+    start_time = time.time()
+    best_solution, best_cost = vrp_tabu.tabu_search_parallel()
+    print(str((time.time() - start_time)) + ' seconds in parallel')
+    start_time = time.time()
+    best_solution, best_cost = vrp_tabu.tabu_search()
+    print(str((time.time() - start_time)) + ' seconds in one thread')
+    print(best_cost)
+    print(best_solution)
 
 
 

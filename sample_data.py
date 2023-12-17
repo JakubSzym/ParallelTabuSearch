@@ -24,11 +24,11 @@ import math
 
 filename_graph = 'data_graph.npy'
 filename = 'nodes.txt'
-nodes_count = 10
+nodes_count = 100
 minX = 0
-maxX = 20
+maxX = 50
 minY = 0
-maxY = 20
+maxY = 50
 
 
 with open(filename, "w") as file:
@@ -51,5 +51,5 @@ for i in range(nodes_count):
     for j in range(nodes_count):
         data_matrix[i][j] = data_matrix[j][i] = math.dist(nodes[i], nodes[j])
 
-with open(filename, 'wb+') as f:
+with open(filename_graph, 'wb+') as f:
     np.save(f, data_matrix)
