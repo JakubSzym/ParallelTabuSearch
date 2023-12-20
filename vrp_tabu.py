@@ -79,15 +79,14 @@ class VRPTabuSearch:
     
     def multiple_initial_solutions(self):
         init_solution = self.initial_solution()
-        solutions = []
-        for _ in range(10):
+        solutions = [init_solution]
+        for _ in range(9):
             new_solution = []
             for route in init_solution:
                 np.random.shuffle(route)
                 new_solution.append(route)
             solutions.append(new_solution)
-        
-        return solutions
+        return np.array(solutions)
 
     def cost_function(self, routes):
         cost = 0
@@ -177,18 +176,15 @@ class VRPTabuSearch:
                 iteration += 1
             else:
                 max_iteration_stop = True
-
         return best_solution, best_cost
     
     def multistart_tabu_search(self):
         input_solutions = self.multiple_initial_solutions()
         print(f"Running multistart tabu search with {len(input_solutions)} initial solutions.")
-        with Pool(5) as pool:
+        with Pool(10) as pool:
             results = pool.map(self.tabu_search, input_solutions)
-        costs, solutions = zip(*list(results))
-        i = 1
-        for cost in costs:
-            print(f"Cost {i}: {cost}")
+        solutions, costs = zip(*list(results))
+        print(costs)
 
     def tabu_search(self, initial_solution):
         best_solution = numpy.copy(initial_solution)
@@ -225,6 +221,7 @@ class VRPTabuSearch:
 
             if iteration < self.max_iterations:
                 iteration += 1
+                print(iteration)
             else:
                 max_iteration_stop = True
 
@@ -263,7 +260,7 @@ def draw(nodes, solution):
 
 
 if __name__ == '__main__':
-    vrp_tabu = VRPTabuSearch(10, 5, 200, 50, 'data_graph.npy')
+    vrp_tabu = VRPTabuSearch(10, 5, 10, 50, 'data_graph.npy')
     # solution = vrp_tabu.initial_solution()
 
     # print(f"Initial solution cost: {vrp_tabu.cost_function(solution)}")
