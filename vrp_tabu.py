@@ -1,10 +1,20 @@
+from mimetypes import init
 import sys
+from tracemalloc import start
 import numpy
 import numpy as np
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 import time
+import csv
+from PIL import Image, ImageDraw
 
+
+class Node:
+    def __init__(self, label, x, y) -> None:
+        self.label = label
+        self.x = float(x)
+        self.y = float(y)
 
 class VRPTabuSearch:
     def __init__(self, vehicle_count, tabu_tenure, max_iterations, candidate_list_percentage, distance_graph_filename):
@@ -19,6 +29,12 @@ class VRPTabuSearch:
         self.read_distance_graph(distance_graph_filename)
         self.current_solution = self.initial_solution()
         self.tabu_list = np.zeros((self.tabu_tenure, self.current_solution.shape[0], self.current_solution.shape[1]), dtype=int)
+
+        print("Running tabu search for VRP with parameters:")
+        print(f"Vehicles: {self.vehicle_count}")
+        print(f"Tabu tenure: {self.tabu_tenure}")
+        print(f"Max iterations: {self.max_iterations}")
+        print(f"Candidate list percentage: {self.candidate_list_percentage}")
 
     def read_distance_graph(self, filename):
         with open(filename, 'rb') as f:
@@ -60,6 +76,18 @@ class VRPTabuSearch:
                     break
             i += 1
         return routes
+    
+    def multiple_initial_solutions(self):
+        init_solution = self.initial_solution()
+        solutions = []
+        for _ in range(10):
+            new_solution = []
+            for route in init_solution:
+                np.random.shuffle(route)
+                new_solution.append(route)
+            solutions.append(new_solution)
+        
+        return solutions
 
     def cost_function(self, routes):
         cost = 0
@@ -125,8 +153,9 @@ class VRPTabuSearch:
                     best_neighbor_solution = np.copy(temp_solution)
         return best_neighbor_cost, best_neighbor_solution
 
-    def tabu_search_parallel(self):
-        best_solution = numpy.copy(self.current_solution)
+    def tabu_search_parallel(self, initial_solution):
+        print(f"Running parallel tabu search with {self.node_count} threads.")
+        best_solution = numpy.copy(initial_solution)
         self.tabu_list[0] = best_solution
         best_cost = self.cost_function(best_solution)
         iteration = 0
@@ -150,9 +179,19 @@ class VRPTabuSearch:
                 max_iteration_stop = True
 
         return best_solution, best_cost
+    
+    def multistart_tabu_search(self):
+        input_solutions = self.multiple_initial_solutions()
+        print(f"Running multistart tabu search with {len(input_solutions)} initial solutions.")
+        with Pool(5) as pool:
+            results = pool.map(self.tabu_search, input_solutions)
+        costs, solutions = zip(*list(results))
+        i = 1
+        for cost in costs:
+            print(f"Cost {i}: {cost}")
 
-    def tabu_search(self):
-        best_solution = numpy.copy(self.current_solution)
+    def tabu_search(self, initial_solution):
+        best_solution = numpy.copy(initial_solution)
         self.tabu_list[0] = best_solution
         best_cost = self.cost_function(best_solution)
         iteration = 0
@@ -190,22 +229,56 @@ class VRPTabuSearch:
                 max_iteration_stop = True
 
         return best_solution, best_cost
+    
+
+def read_nodes(filename):
+    nodes = []
+    with open(filename, "r") as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            nodes.append(Node(row['label'], row['x'], row['y']))
+    return nodes
+
+def draw(nodes, solution):
+    w, h = 2000, 2000
+    img = Image.new("RGB", (w, h), "white")
+    draw_img = ImageDraw.Draw(img)
+    for i, point in enumerate(nodes):
+        x, y = point.x * 40, point.y * 40
+        color = "blue" if i > 0 else "red"
+        draw_img.ellipse((x - 10, y - 10, x + 10, y + 10), fill=color, outline=(0, 0, 0))
+        draw_img.text((x, y), str(point.label), fill="black")
+    for i in range(len(solution) - 1):
+        zeros = 0
+        for j in range(len(solution[i]) - 1):
+            if solution[i][j] == 0:
+                zeros += 1
+            begin = nodes[solution[i][j]]
+            end = nodes[solution[i][j + 1]]
+            draw_img.line([(begin.x * 40, begin.y * 40), (end.x * 40, end.y * 40)],
+                      fill="black")
+            if zeros == 2:
+                break
+    img.show()
 
 
 if __name__ == '__main__':
     vrp_tabu = VRPTabuSearch(10, 5, 200, 50, 'data_graph.npy')
-    solution = vrp_tabu.initial_solution()
-    print(solution)
-    cost = vrp_tabu.cost_function(solution)
-    print(cost)
-    start_time = time.time()
-    best_solution, best_cost = vrp_tabu.tabu_search_parallel()
-    print(str((time.time() - start_time)) + ' seconds in parallel')
-    start_time = time.time()
-    best_solution, best_cost = vrp_tabu.tabu_search()
-    print(str((time.time() - start_time)) + ' seconds in one thread')
-    print(best_cost)
-    print(best_solution)
+    # solution = vrp_tabu.initial_solution()
 
+    # print(f"Initial solution cost: {vrp_tabu.cost_function(solution)}")
+    # start_time = time.time()
+    # best_solution, best_cost = vrp_tabu.tabu_search_parallel(solution)
+    # print(str((time.time() - start_time)) + ' seconds using parallelization')
+    # start_time = time.time()
+    # best_solution, best_cost = vrp_tabu.tabu_search(solution)
+    # print(str((time.time() - start_time)) + ' seconds using one thread')
+    # print(f"Best cost: {best_cost}")
+    # print(f"Best solution: {best_solution}")
 
+    # nodes = read_nodes("nodes.txt")
+
+    # draw(nodes, best_solution)
+
+    vrp_tabu.multistart_tabu_search()
 

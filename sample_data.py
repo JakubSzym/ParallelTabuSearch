@@ -5,23 +5,6 @@ from argparse import ArgumentParser
 import numpy as np
 import math
 
-#parser = ArgumentParser()
-#parser.add_argument("--filename", "-f", help="output file")
-#parser.add_argument("--nodes",    help="number of nodes")
-#parser.add_argument("--minX",     help="minimal value of x coordinate")
-#parser.add_argument("--maxX",     help="maximal value of x coordinate")
-#parser.add_argument("--minY",     help="minimal value of y coordinate")
-#parser.add_argument("--maxY",     help="maximal value of y coordinate")
-
-#args = parser.parse_args()
-
-#filename = args.filename
-#nodes_count    = int(args.nodes)
-#minX     = int(args.minX)
-#maxX     = int(args.maxX)
-#minY     = int(args.minY)
-#maxY     = int(args.maxY)
-
 filename_graph = 'data_graph.npy'
 filename = 'nodes.txt'
 nodes_count = 100
