@@ -184,7 +184,8 @@ class VRPTabuSearch:
         with Pool(10) as pool:
             results = pool.map(self.tabu_search, input_solutions)
         solutions, costs = zip(*list(results))
-        print(costs)
+        for cost in costs:
+            print(cost)
 
     def tabu_search(self, initial_solution):
         best_solution = numpy.copy(initial_solution)
@@ -221,7 +222,6 @@ class VRPTabuSearch:
 
             if iteration < self.max_iterations:
                 iteration += 1
-                print(iteration)
             else:
                 max_iteration_stop = True
 
@@ -261,21 +261,21 @@ def draw(nodes, solution):
 
 if __name__ == '__main__':
     vrp_tabu = VRPTabuSearch(10, 5, 10, 50, 'data_graph.npy')
-    # solution = vrp_tabu.initial_solution()
+    solution = vrp_tabu.initial_solution()
 
-    # print(f"Initial solution cost: {vrp_tabu.cost_function(solution)}")
-    # start_time = time.time()
-    # best_solution, best_cost = vrp_tabu.tabu_search_parallel(solution)
-    # print(str((time.time() - start_time)) + ' seconds using parallelization')
-    # start_time = time.time()
-    # best_solution, best_cost = vrp_tabu.tabu_search(solution)
-    # print(str((time.time() - start_time)) + ' seconds using one thread')
-    # print(f"Best cost: {best_cost}")
-    # print(f"Best solution: {best_solution}")
+    print(f"Initial solution cost: {vrp_tabu.cost_function(solution)}")
+    start_time = time.time()
+    best_solution, best_cost = vrp_tabu.tabu_search_parallel(solution)
+    print(str((time.time() - start_time)) + ' seconds using parallelization')
+    start_time = time.time()
+    best_solution, best_cost = vrp_tabu.tabu_search(solution)
+    print(str((time.time() - start_time)) + ' seconds using one thread')
+    print(f"Best cost: {best_cost}")
+    print(f"Best solution: {best_solution}")
 
-    # nodes = read_nodes("nodes.txt")
+    nodes = read_nodes("nodes.txt")
 
-    # draw(nodes, best_solution)
+    draw(nodes, best_solution)
 
     vrp_tabu.multistart_tabu_search()
 
